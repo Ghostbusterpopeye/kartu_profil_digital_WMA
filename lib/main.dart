@@ -17,18 +17,17 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-  class _MyAppState extends State<MyApp> {
-  // Nilai awal dibaca dari penyimpanan, bukan hard-coded.
-  late final ValueNotifier<bool> _isDark =
-      ValueNotifier(widget.prefs.isDarkMode);
-    void _changeTheme(bool value) {
-    _isDark.value = value;            // 1. ubah tampilan sekarang
-    widget.prefs.setDarkMode(value);  // 2. simpan untuk nanti
+class _MyAppState extends State<MyApp> {
+  late final ValueNotifier<bool> _isDark = ValueNotifier(
+    widget.prefs.isDarkMode,
+  );
+
+  Future<void> _changeTheme(bool value) async {
+    await widget.prefs.setDarkMode(value);
+    _isDark.value = value;
   }
 
-
-
-    @override
+  @override
   void dispose() {
     _isDark.dispose();
     super.dispose();
