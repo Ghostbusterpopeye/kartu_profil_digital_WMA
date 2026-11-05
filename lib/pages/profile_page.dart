@@ -7,13 +7,25 @@ class ProfilePage extends StatefulWidget {
   const ProfilePage({
     super.key,
     required this.prefs,
-    required this.isDark,
-    required this.onThemeChanged,
+    required this.themeMode,
+    required this.onThemeModeChanged,
+    required this.themeColor,
+    required this.onThemeColorChanged,
   });
 
   final PrefService prefs;
-  final bool isDark;
-  final ValueChanged<bool> onThemeChanged;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeModeChanged;
+  final Color themeColor;
+  final ValueChanged<Color> onThemeColorChanged;
+
+  static const _themeColors = <(String, Color)>[
+    ('Indigo', Color(0xFF3F51B5)),
+    ('Teal', Color(0xFF009688)),
+    ('Oranye', Color(0xFFFF9800)),
+    ('Ungu', Color(0xFF9C27B0)),
+    ('Biru', Color(0xFF2196F3)),
+  ];
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -107,11 +119,47 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 8),
-          SwitchListTile(
-            secondary: const Icon(Icons.dark_mode),
-            title: const Text('Mode Gelap'),
-            value: widget.isDark,
-            onChanged: widget.onThemeChanged,
+          ListTile(
+            leading: const Icon(Icons.brightness_6),
+            title: const Text('Mode tampilan'),
+            trailing: DropdownButton<ThemeMode>(
+              value: widget.themeMode,
+              onChanged: (mode) {
+                if (mode != null) widget.onThemeModeChanged(mode);
+              },
+              items: const [
+                DropdownMenuItem(
+                  value: ThemeMode.system,
+                  child: Text('Sistem'),
+                ),
+                DropdownMenuItem(value: ThemeMode.light, child: Text('Terang')),
+                DropdownMenuItem(value: ThemeMode.dark, child: Text('Gelap')),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Warna tema',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final (name, color) in ProfilePage._themeColors)
+                      ChoiceChip(
+                        label: Text(name),
+                        selected:
+                            widget.themeColor.toARGB32() == color.toARGB32(),
+                        onSelected: (_) => widget.onThemeColorChanged(color),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
           // Lab 11 akan menambahkan menu "Proyek Saya" di sini.
           const SizedBox(height: 24),

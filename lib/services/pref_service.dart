@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kartu_profil_digital/models/profile_data.dart';
 
@@ -9,6 +10,8 @@ class PrefService {
   // Semua key dikumpulkan di sini.
   static const _kOpenCount = 'open_count';
   static const _kDarkMode = 'is_dark_mode';
+  static const _kThemeMode = 'theme_mode';
+  static const _kThemeColor = 'theme_color';
   static const _kProfile = 'profile_data';
   static const _kLastEdited = 'last_edited';
   static const _kHasSeenOnboarding = 'has_seen_onboarding';
@@ -25,9 +28,26 @@ class PrefService {
   Future<void> increaseOpenCount() => _prefs.setInt(_kOpenCount, openCount + 1);
 
   // ---------- Tema ----------
-  bool get isDarkMode => _prefs.getBool(_kDarkMode) ?? false;
+  ThemeMode get themeMode {
+    final savedMode = _prefs.getInt(_kThemeMode);
+    if (savedMode != null &&
+        savedMode >= 0 &&
+        savedMode < ThemeMode.values.length) {
+      return ThemeMode.values[savedMode];
+    }
+    if (savedMode == null && (_prefs.getBool(_kDarkMode) ?? false)) {
+      return ThemeMode.dark;
+    }
+    return ThemeMode.system;
+  }
 
-  Future<void> setDarkMode(bool value) => _prefs.setBool(_kDarkMode, value);
+  Future<void> setThemeMode(ThemeMode value) =>
+      _prefs.setInt(_kThemeMode, value.index);
+
+  Color get themeColor => Color(_prefs.getInt(_kThemeColor) ?? 0xFF3F51B5);
+
+  Future<void> setThemeColor(Color value) =>
+      _prefs.setInt(_kThemeColor, value.toARGB32());
 
   // ---------- Onboarding ----------
   bool get hasSeenOnboarding => _prefs.getBool(_kHasSeenOnboarding) ?? false;
