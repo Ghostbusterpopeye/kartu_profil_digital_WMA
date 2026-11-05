@@ -13,6 +13,6 @@ class ProfileData {
   static const defaults = ProfileData(
     name: 'Sultan Shalahuddin Al Ayubi',
     title: 'Software Engineer & Mahasiswa',
-    bio: 'Suka memabaca buku dan bermain game.',
+    bio: 'Suka bermain game dan berenang.',
   );
 }
