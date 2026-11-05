@@ -9,17 +9,52 @@ void main() async {
   runApp(MyApp(prefs: prefs));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key, required this.prefs});
   final PrefService prefs;
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+  class _MyAppState extends State<MyApp> {
+  // Nilai awal dibaca dari penyimpanan, bukan hard-coded.
+  late final ValueNotifier<bool> _isDark =
+      ValueNotifier(widget.prefs.isDarkMode);
+    void _changeTheme(bool value) {
+    _isDark.value = value;            // 1. ubah tampilan sekarang
+    widget.prefs.setDarkMode(value);  // 2. simpan untuk nanti
+  }
+
+
+
+    @override
+  void dispose() {
+    _isDark.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Kartu Profil Digital',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: Colors.indigo),
-      home: ProfilePage(prefs: prefs),
+    return ValueListenableBuilder<bool>(
+      valueListenable: _isDark,
+      builder: (context, isDark, _) {
+        return MaterialApp(
+          title: 'Kartu Profil Digital',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(colorSchemeSeed: Colors.indigo),
+          darkTheme: ThemeData(
+            colorSchemeSeed: Colors.indigo,
+            brightness: Brightness.dark,
+          ),
+          themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+          home: ProfilePage(
+            prefs: widget.prefs,
+            isDark: isDark,
+            onThemeChanged: _changeTheme,
+          ),
+        );
+      },
     );
   }
 }

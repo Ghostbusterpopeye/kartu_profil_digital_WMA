@@ -4,6 +4,13 @@ class PrefService {
   PrefService._(this._prefs);
   final SharedPreferences _prefs;
 
+  static const _kDarkMode = 'is_dark_mode';
+
+// ---------- Tema ----------
+bool get isDarkMode => _prefs.getBool(_kDarkMode) ?? false;
+
+Future<void> setDarkMode(bool value) => _prefs.setBool(_kDarkMode, value);
+
   // Semua key dikumpulkan di sini.
   static const _kOpenCount = 'open_count';
 
