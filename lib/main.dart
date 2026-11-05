@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pages/onboarding_page.dart';
 import 'pages/profile_page.dart';
 import 'services/pref_service.dart';
 
@@ -22,15 +23,24 @@ class _MyAppState extends State<MyApp> {
   late final ValueNotifier<bool> _isDark = ValueNotifier(
     widget.prefs.isDarkMode,
   );
+  late final ValueNotifier<bool> _hasSeenOnboarding = ValueNotifier(
+    widget.prefs.hasSeenOnboarding,
+  );
 
   Future<void> _changeTheme(bool value) async {
     await widget.prefs.setDarkMode(value);
     _isDark.value = value;
   }
 
+  Future<void> _completeOnboarding() async {
+    await widget.prefs.setHasSeenOnboarding(true);
+    _hasSeenOnboarding.value = true;
+  }
+
   @override
   void dispose() {
     _isDark.dispose();
+    _hasSeenOnboarding.dispose();
     super.dispose();
   }
 
@@ -48,10 +58,18 @@ class _MyAppState extends State<MyApp> {
             brightness: Brightness.dark,
           ),
           themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-          home: ProfilePage(
-            prefs: widget.prefs,
-            isDark: isDark,
-            onThemeChanged: _changeTheme,
+          home: ValueListenableBuilder<bool>(
+            valueListenable: _hasSeenOnboarding,
+            builder: (context, hasSeenOnboarding, _) {
+              if (!hasSeenOnboarding) {
+                return OnboardingPage(onStart: _completeOnboarding);
+              }
+              return ProfilePage(
+                prefs: widget.prefs,
+                isDark: isDark,
+                onThemeChanged: _changeTheme,
+              );
+            },
           ),
         );
       },

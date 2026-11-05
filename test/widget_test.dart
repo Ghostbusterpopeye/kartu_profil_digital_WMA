@@ -9,6 +9,7 @@ void main() {
   testWidgets('profile and preferences persist', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await PrefService.init();
+    await prefs.setHasSeenOnboarding(true);
     await prefs.increaseOpenCount();
 
     await tester.pumpWidget(MyApp(prefs: prefs));
@@ -47,6 +48,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await PrefService.init();
+    await prefs.setHasSeenOnboarding(true);
     await tester.pumpWidget(MyApp(prefs: prefs));
 
     await tester.tap(find.byTooltip('Edit profil'));
@@ -61,5 +63,31 @@ void main() {
 
     final reopenedPrefs = await PrefService.init();
     expect(reopenedPrefs.lastEdited, lastEdited);
+  });
+
+  testWidgets('onboarding is shown once and remembered', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await PrefService.init();
+
+    await tester.pumpWidget(MyApp(prefs: prefs));
+    expect(find.text('Selamat Datang'), findsOneWidget);
+    expect(find.text('Kartu Profil Digital'), findsNothing);
+    expect(prefs.hasSeenOnboarding, isFalse);
+
+    await tester.tap(find.text('Mulai'));
+    await tester.pumpAndSettle();
+
+    expect(prefs.hasSeenOnboarding, isTrue);
+    expect(find.text('Kartu Profil Digital'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    final reopenedPrefs = await PrefService.init();
+    await tester.pumpWidget(MyApp(prefs: reopenedPrefs));
+
+    expect(reopenedPrefs.hasSeenOnboarding, isTrue);
+    expect(find.text('Selamat Datang'), findsNothing);
+    expect(find.text('Kartu Profil Digital'), findsOneWidget);
   });
 }

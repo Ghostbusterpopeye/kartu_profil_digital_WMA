@@ -11,6 +11,7 @@ class PrefService {
   static const _kDarkMode = 'is_dark_mode';
   static const _kProfile = 'profile_data';
   static const _kLastEdited = 'last_edited';
+  static const _kHasSeenOnboarding = 'has_seen_onboarding';
 
   /// Dipanggil sekali saat aplikasi mulai.
   static Future<PrefService> init() async {
@@ -27,6 +28,12 @@ class PrefService {
   bool get isDarkMode => _prefs.getBool(_kDarkMode) ?? false;
 
   Future<void> setDarkMode(bool value) => _prefs.setBool(_kDarkMode, value);
+
+  // ---------- Onboarding ----------
+  bool get hasSeenOnboarding => _prefs.getBool(_kHasSeenOnboarding) ?? false;
+
+  Future<void> setHasSeenOnboarding(bool value) =>
+      _prefs.setBool(_kHasSeenOnboarding, value);
 
   // ---------- Profil ----------
   ProfileData get profile {
