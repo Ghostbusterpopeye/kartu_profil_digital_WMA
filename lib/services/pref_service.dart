@@ -6,12 +6,11 @@ class PrefService {
   final SharedPreferences _prefs;
   Set<String> get debugKeys => _prefs.getKeys();
 
-
   // Semua key dikumpulkan di sini.
   static const _kOpenCount = 'open_count';
   static const _kDarkMode = 'is_dark_mode';
   static const _kProfile = 'profile_data';
-
+  static const _kLastEdited = 'last_edited';
 
   /// Dipanggil sekali saat aplikasi mulai.
   static Future<PrefService> init() async {
@@ -30,19 +29,26 @@ class PrefService {
   Future<void> setDarkMode(bool value) => _prefs.setBool(_kDarkMode, value);
 
   // ---------- Profil ----------
-ProfileData get profile {
-  final raw = _prefs.getString(_kProfile);
-  if (raw == null) return ProfileData.defaults;
-  try {
-    return ProfileData.fromJson(raw);
-  } catch (_) {
-    // Data rusak? Jangan crash, kembali ke bawaan.
-    return ProfileData.defaults;
+  ProfileData get profile {
+    final raw = _prefs.getString(_kProfile);
+    if (raw == null) return ProfileData.defaults;
+    try {
+      return ProfileData.fromJson(raw);
+    } catch (_) {
+      // Data rusak? Jangan crash, kembali ke bawaan.
+      return ProfileData.defaults;
+    }
   }
-}
 
-Future<void> saveProfile(ProfileData profile) =>
-    _prefs.setString(_kProfile, profile.toJson());
+  String? get lastEdited => _prefs.getString(_kLastEdited);
 
-Future<void> clearProfile() => _prefs.remove(_kProfile);
+  Future<void> saveProfile(ProfileData profile) async {
+    await _prefs.setString(_kProfile, profile.toJson());
+    await _prefs.setString(_kLastEdited, DateTime.now().toIso8601String());
+  }
+
+  Future<void> clearProfile() async {
+    await _prefs.remove(_kProfile);
+    await _prefs.remove(_kLastEdited);
+  }
 }

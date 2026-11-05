@@ -38,25 +38,26 @@ class _ProfilePageState extends State<ProfilePage> {
     await widget.prefs.saveProfile(result);
     if (!mounted) return;
     setState(() => _profile = result);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profil tersimpan')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Profil tersimpan')));
   }
 
   Future<void> _reset() async {
-  await widget.prefs.clearProfile();
-  if (!mounted) return;
-  setState(() => _profile = widget.prefs.profile);
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Profil dikembalikan ke bawaan')),
-  );
+    await widget.prefs.clearProfile();
+    if (!mounted) return;
+    setState(() => _profile = widget.prefs.profile);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profil dikembalikan ke bawaan')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final initial =
-        _profile.name.isNotEmpty ? _profile.name[0].toUpperCase() : '?';
+    final initial = _profile.name.isNotEmpty
+        ? _profile.name[0].toUpperCase()
+        : '?';
 
     return Scaffold(
       appBar: AppBar(
@@ -88,12 +89,19 @@ class _ProfilePageState extends State<ProfilePage> {
                     label: const Text('Reset Profil'),
                   ),
                   const SizedBox(height: 16),
-                  Text(_profile.name,
-                      style: Theme.of(context).textTheme.headlineSmall),
+                  Text(
+                    _profile.name,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 4),
                   Text(_profile.title),
                   const SizedBox(height: 12),
                   Text(_profile.bio, textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Terakhir diedit: ${widget.prefs.lastEdited ?? 'Belum pernah'}',
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),

@@ -41,4 +41,25 @@ void main() {
       Brightness.dark,
     );
   });
+
+  testWidgets('profile edit date is saved as ISO 8601', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await PrefService.init();
+    await tester.pumpWidget(MyApp(prefs: prefs));
+
+    await tester.tap(find.byTooltip('Edit profil'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).last, 'Bio baru');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    final lastEdited = prefs.lastEdited!;
+    expect(() => DateTime.parse(lastEdited), returnsNormally);
+    expect(find.text('Terakhir diedit: $lastEdited'), findsOneWidget);
+
+    final reopenedPrefs = await PrefService.init();
+    expect(reopenedPrefs.lastEdited, lastEdited);
+  });
 }
