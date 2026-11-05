@@ -43,6 +43,15 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Future<void> _reset() async {
+  await widget.prefs.clearProfile();
+  if (!mounted) return;
+  setState(() => _profile = widget.prefs.profile);
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Profil dikembalikan ke bawaan')),
+  );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -72,6 +81,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     radius: 40,
                     backgroundColor: colors.primaryContainer,
                     child: Text(initial, style: const TextStyle(fontSize: 32)),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _reset,
+                    icon: const Icon(Icons.restore),
+                    label: const Text('Reset Profil'),
                   ),
                   const SizedBox(height: 16),
                   Text(_profile.name,

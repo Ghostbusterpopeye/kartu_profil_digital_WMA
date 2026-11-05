@@ -5,6 +5,7 @@ import 'services/pref_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // wajib sebelum await di main
   final prefs = await PrefService.init();
+  debugPrint('Isi prefs: ${prefs.debugKeys}');
   await prefs.increaseOpenCount();
   runApp(MyApp(prefs: prefs));
 }
