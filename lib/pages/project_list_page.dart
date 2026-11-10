@@ -4,15 +4,17 @@ import '../models/project.dart';
 import 'project_form_page.dart';
 
 class ProjectListPage extends StatelessWidget {
-  const ProjectListPage({super.key});
+  const ProjectListPage({super.key, this.repository});
+
+  final ProjectRepository? repository;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Proyek Saya')),
-      body: const Padding(
-        padding: EdgeInsets.all(16),
-        child: ProjectListSection(),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: ProjectListSection(repository: repository),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/project_repository.dart';
 import '../models/profile_data.dart';
 import '../services/pref_service.dart';
 import 'edit_profile_page.dart';
@@ -12,6 +13,7 @@ class ProfilePage extends StatefulWidget {
     required this.onThemeModeChanged,
     required this.themeColor,
     required this.onThemeColorChanged,
+    this.projectRepository,
   });
 
   final PrefService prefs;
@@ -19,6 +21,7 @@ class ProfilePage extends StatefulWidget {
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final Color themeColor;
   final ValueChanged<Color> onThemeColorChanged;
+  final ProjectRepository? projectRepository;
 
   static const _themeColors = <(String, Color)>[
     ('Indigo', Color(0xFF3F51B5)),
@@ -33,6 +36,8 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  late final _projectRepo = widget.projectRepository ?? ProjectRepository();
+  late Future<int> _countFuture = _projectRepo.count();
   late ProfileData _profile;
 
   @override
@@ -63,6 +68,19 @@ class _ProfilePageState extends State<ProfilePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profil dikembalikan ke bawaan')),
     );
+  }
+
+  Future<void> _openProjects() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProjectListPage(repository: _projectRepo),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _countFuture = _projectRepo.count();
+    });
   }
 
   @override
@@ -120,8 +138,21 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 8),
-          const ProjectListSection(),
-          const SizedBox(height: 8),
+          ListTile(
+            leading: const Icon(Icons.folder_open),
+            title: const Text('Proyek Saya'),
+            subtitle: FutureBuilder<int>(
+              future: _countFuture,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Text('Gagal memuat jumlah proyek');
+                }
+                return Text('${snapshot.data ?? 0} proyek');
+              },
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _openProjects,
+          ),
           ListTile(
             leading: const Icon(Icons.brightness_6),
             title: const Text('Mode tampilan'),

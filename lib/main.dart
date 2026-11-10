@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'data/project_repository.dart';
 import 'pages/onboarding_page.dart';
 import 'pages/profile_page.dart';
 import 'services/pref_service.dart';
@@ -12,8 +13,9 @@ void main() async {
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, required this.prefs});
+  const MyApp({super.key, required this.prefs, this.projectRepository});
   final PrefService prefs;
+  final ProjectRepository? projectRepository;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -82,6 +84,7 @@ class _MyAppState extends State<MyApp> {
                     onThemeModeChanged: _changeThemeMode,
                     themeColor: themeColor,
                     onThemeColorChanged: _changeThemeColor,
+                    projectRepository: widget.projectRepository,
                   );
                 },
               ),

@@ -15,6 +15,30 @@ class _FakeProjectRepository extends ProjectRepository {
   final List<Project> projects;
 
   @override
+  Future<int> count() async => projects.length;
+
+  @override
+  Future<int> insert(Project project) async {
+    final id =
+        projects.fold<int>(0, (maxId, item) {
+          final itemId = item.id ?? 0;
+          return itemId > maxId ? itemId : maxId;
+        }) +
+        1;
+    projects.add(
+      Project(
+        id: id,
+        title: project.title,
+        description: project.description,
+        techStack: project.techStack,
+        createdAt: project.createdAt,
+        isFavorite: project.isFavorite,
+      ),
+    );
+    return id;
+  }
+
+  @override
   Future<List<Project>> getAll({String query = ''}) async =>
       List<Project>.of(projects)..sort((a, b) {
         final favoriteOrder = (b.isFavorite ? 1 : 0).compareTo(
@@ -64,15 +88,19 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await PrefService.init();
+    final projectRepository = _FakeProjectRepository([]);
     await prefs.setHasSeenOnboarding(true);
     await prefs.increaseOpenCount();
 
-    await tester.pumpWidget(MyApp(prefs: prefs));
+    await tester.pumpWidget(
+      MyApp(prefs: prefs, projectRepository: projectRepository),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Kartu Profil Digital'), findsOneWidget);
     expect(find.text('Sultan Shalahuddin Al Ayubi'), findsOneWidget);
     expect(find.text('Proyek Saya'), findsOneWidget);
+    expect(find.text('0 proyek'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Kartu ini sudah dibuka 1 kali'),
       300,
@@ -148,6 +176,37 @@ void main() {
     await tester.pump();
 
     expect(find.text('Wajib diisi'), findsNWidgets(3));
+  });
+
+  testWidgets('project count refreshes after returning to profile', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await PrefService.init();
+    await prefs.setHasSeenOnboarding(true);
+    final projectRepository = _FakeProjectRepository([]);
+
+    await tester.pumpWidget(
+      MyApp(prefs: prefs, projectRepository: projectRepository),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('0 proyek'), findsOneWidget);
+
+    await tester.tap(find.text('Proyek Saya'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tambah'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Proyek Baru');
+    await tester.enterText(find.byType(TextFormField).at(1), 'Flutter');
+    await tester.enterText(find.byType(TextFormField).at(2), 'Deskripsi');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Proyek Baru'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('1 proyek'), findsOneWidget);
   });
 
   testWidgets('tapping a project edits it and refreshes the list', (
