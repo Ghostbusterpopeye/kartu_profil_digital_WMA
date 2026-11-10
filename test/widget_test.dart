@@ -3,8 +3,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kartu_profil_digital/main.dart';
+import 'package:kartu_profil_digital/data/project_repository.dart';
 import 'package:kartu_profil_digital/pages/project_form_page.dart';
+import 'package:kartu_profil_digital/pages/project_list_page.dart';
+import 'package:kartu_profil_digital/models/project.dart';
 import 'package:kartu_profil_digital/services/pref_service.dart';
+
+class _FakeProjectRepository extends ProjectRepository {
+  _FakeProjectRepository(this.projects);
+
+  final List<Project> projects;
+
+  @override
+  Future<List<Project>> getAll({String query = ''}) async =>
+      List<Project>.of(projects);
+
+  @override
+  Future<int> update(Project project) async {
+    final index = projects.indexWhere((item) => item.id == project.id);
+    if (index == -1) return 0;
+    projects[index] = project;
+    return 1;
+  }
+
+  @override
+  Future<int> delete(int id) async {
+    final count = projects.length;
+    projects.removeWhere((project) => project.id == id);
+    return count - projects.length;
+  }
+}
 
 void main() {
   testWidgets('profile, projects, and preferences are available', (
@@ -96,6 +124,77 @@ void main() {
     await tester.pump();
 
     expect(find.text('Wajib diisi'), findsNWidgets(3));
+  });
+
+  testWidgets('tapping a project edits it and refreshes the list', (
+    WidgetTester tester,
+  ) async {
+    final project = Project(
+      id: 1,
+      title: 'Proyek Lama',
+      description: 'Deskripsi lama',
+      techStack: 'Flutter',
+      createdAt: DateTime(2026),
+    );
+    final repository = _FakeProjectRepository([project]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ProjectListSection(repository: repository)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Proyek Lama'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit Proyek'), findsOneWidget);
+    expect(find.text('Flutter'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).first, 'Proyek Baru');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    expect(repository.projects.single.title, 'Proyek Baru');
+    expect(find.text('Proyek Baru'), findsOneWidget);
+  });
+
+  testWidgets('project deletion requires confirmation', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeProjectRepository([
+      Project(
+        id: 1,
+        title: 'Proyek Uji',
+        description: 'Deskripsi',
+        techStack: 'Dart',
+        createdAt: DateTime(2026),
+      ),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ProjectListSection(repository: repository)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Hapus'));
+    await tester.pumpAndSettle();
+    expect(find.text('"Proyek Uji" akan dihapus permanen.'), findsOneWidget);
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
+    expect(repository.projects, hasLength(1));
+    expect(find.text('Proyek Uji'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Hapus'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hapus'));
+    await tester.pumpAndSettle();
+
+    expect(repository.projects, isEmpty);
+    expect(
+      find.text('Belum ada proyek.\nTekan + untuk menambahkan.'),
+      findsOneWidget,
+    );
+    expect(find.text('"Proyek Uji" dihapus'), findsOneWidget);
   });
 
   testWidgets('onboarding is shown once and remembered', (

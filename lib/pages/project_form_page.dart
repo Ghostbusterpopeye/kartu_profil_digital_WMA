@@ -3,8 +3,9 @@ import '../data/project_repository.dart';
 import '../models/project.dart';
 
 class ProjectFormPage extends StatefulWidget {
-  const ProjectFormPage({super.key, this.project});
+  const ProjectFormPage({super.key, this.project, this.repository});
   final Project? project; // null = mode tambah
+  final ProjectRepository? repository; // null = mode tambah
 
   @override
   State<ProjectFormPage> createState() => _ProjectFormPageState();
@@ -12,7 +13,7 @@ class ProjectFormPage extends StatefulWidget {
 
 class _ProjectFormPageState extends State<ProjectFormPage> {
   final _formKey = GlobalKey<FormState>();
-  final _repo = ProjectRepository();
+  late final _repo = widget.repository ?? ProjectRepository();
 
   late final _title = TextEditingController(text: widget.project?.title);
   late final _desc = TextEditingController(text: widget.project?.description);

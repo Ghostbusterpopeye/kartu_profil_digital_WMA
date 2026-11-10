@@ -19,14 +19,16 @@ class ProjectListPage extends StatelessWidget {
 }
 
 class ProjectListSection extends StatefulWidget {
-  const ProjectListSection({super.key});
+  const ProjectListSection({super.key, this.repository});
+
+  final ProjectRepository? repository;
 
   @override
   State<ProjectListSection> createState() => _ProjectListSectionState();
 }
 
 class _ProjectListSectionState extends State<ProjectListSection> {
-  final _repo = ProjectRepository();
+  late final _repo = widget.repository ?? ProjectRepository();
   late Future<List<Project>> _future = _repo.getAll();
 
   void _reload() {
@@ -38,9 +40,61 @@ class _ProjectListSectionState extends State<ProjectListSection> {
   Future<void> _openForm([Project? project]) async {
     final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => ProjectFormPage(project: project)),
+      MaterialPageRoute(
+        builder: (_) => ProjectFormPage(project: project, repository: _repo),
+      ),
     );
     if (changed == true) _reload();
+  }
+
+  Future<void> _confirmDelete(Project project) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus proyek?'),
+        content: Text('"${project.title}" akan dihapus permanen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    final messenger = ScaffoldMessenger.of(context);
+
+    final id = project.id;
+    if (id == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Proyek tidak memiliki ID yang valid')),
+      );
+      return;
+    }
+
+    try {
+      final deleted = await _repo.delete(id);
+      if (!mounted) return;
+      _reload();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            deleted > 0
+                ? '"${project.title}" dihapus'
+                : '"${project.title}" tidak ditemukan atau sudah dihapus',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Gagal menghapus proyek: $error')),
+      );
+    }
   }
 
   @override
@@ -95,7 +149,11 @@ class _ProjectListSectionState extends State<ProjectListSection> {
                       ),
                       isThreeLine: true,
                       onTap: () => _openForm(p),
-                      trailing: const Icon(Icons.edit),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Hapus',
+                        onPressed: () => _confirmDelete(p),
+                      ),
                     ),
                   ),
               ],
