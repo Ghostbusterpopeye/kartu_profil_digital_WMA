@@ -3,8 +3,7 @@ import '../models/project.dart';
 import 'db_helper.dart';
 
 class ProjectRepository {
-  ProjectRepository({DbHelper? helper})
-      : _helper = helper ?? DbHelper.instance;
+  ProjectRepository({DbHelper? helper}) : _helper = helper ?? DbHelper.instance;
 
   final DbHelper _helper;
   static const _table = DbHelper.tableProjects;
@@ -22,7 +21,7 @@ class ProjectRepository {
       _table,
       where: query.isEmpty ? null : 'title LIKE ?',
       whereArgs: query.isEmpty ? null : ['%$query%'],
-      orderBy: 'created_at DESC', // terbaru di atas
+      orderBy: 'is_favorite DESC, created_at DESC',
     );
     return rows.map(Project.fromMap).toList();
   }

@@ -47,6 +47,27 @@ class _ProjectListSectionState extends State<ProjectListSection> {
     if (changed == true) _reload();
   }
 
+  Future<void> _toggleFavorite(Project project) async {
+    final id = project.id;
+    if (id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Proyek tidak memiliki ID yang valid')),
+      );
+      return;
+    }
+
+    try {
+      await _repo.update(project.copyWith(isFavorite: !project.isFavorite));
+      if (!mounted) return;
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal mengubah favorit: $error')));
+    }
+  }
+
   Future<void> _confirmDelete(Project project) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -149,10 +170,22 @@ class _ProjectListSectionState extends State<ProjectListSection> {
                       ),
                       isThreeLine: true,
                       onTap: () => _openForm(p),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        tooltip: 'Hapus',
-                        onPressed: () => _confirmDelete(p),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              p.isFavorite ? Icons.star : Icons.star_border,
+                            ),
+                            tooltip: 'Favorit',
+                            onPressed: () => _toggleFavorite(p),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            tooltip: 'Hapus',
+                            onPressed: () => _confirmDelete(p),
+                          ),
+                        ],
                       ),
                     ),
                   ),

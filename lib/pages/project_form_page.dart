@@ -44,6 +44,7 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
       description: _desc.text.trim(),
       techStack: _tech.text.trim(),
       createdAt: old?.createdAt ?? DateTime.now(),
+      isFavorite: old?.isFavorite ?? false,
     );
 
     try {

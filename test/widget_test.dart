@@ -16,7 +16,14 @@ class _FakeProjectRepository extends ProjectRepository {
 
   @override
   Future<List<Project>> getAll({String query = ''}) async =>
-      List<Project>.of(projects);
+      List<Project>.of(projects)..sort((a, b) {
+        final favoriteOrder = (b.isFavorite ? 1 : 0).compareTo(
+          a.isFavorite ? 1 : 0,
+        );
+        return favoriteOrder != 0
+            ? favoriteOrder
+            : b.createdAt.compareTo(a.createdAt);
+      });
 
   @override
   Future<int> update(Project project) async {
@@ -35,6 +42,23 @@ class _FakeProjectRepository extends ProjectRepository {
 }
 
 void main() {
+  test('project favorite values round-trip through SQLite maps', () {
+    final project = Project(
+      id: 1,
+      title: 'Proyek Favorit',
+      description: 'Deskripsi',
+      techStack: 'Flutter',
+      createdAt: DateTime(2026),
+      isFavorite: true,
+    );
+
+    expect(project.toMap()['is_favorite'], 1);
+    expect(Project.fromMap(project.toMap()).isFavorite, isTrue);
+    final legacyMap = project.toMap()..remove('is_favorite');
+    expect(Project.fromMap(legacyMap).isFavorite, isFalse);
+    expect(project.copyWith(isFavorite: false).isFavorite, isFalse);
+  });
+
   testWidgets('profile, projects, and preferences are available', (
     WidgetTester tester,
   ) async {
@@ -135,6 +159,7 @@ void main() {
       description: 'Deskripsi lama',
       techStack: 'Flutter',
       createdAt: DateTime(2026),
+      isFavorite: true,
     );
     final repository = _FakeProjectRepository([project]);
     await tester.pumpWidget(
@@ -154,7 +179,45 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.projects.single.title, 'Proyek Baru');
+    expect(repository.projects.single.isFavorite, isTrue);
     expect(find.text('Proyek Baru'), findsOneWidget);
+  });
+
+  testWidgets('favoriting a project moves it to the top of the list', (
+    WidgetTester tester,
+  ) async {
+    final olderProject = Project(
+      id: 1,
+      title: 'Proyek Lama',
+      description: 'Deskripsi lama',
+      techStack: 'Dart',
+      createdAt: DateTime(2026, 1),
+    );
+    final newerProject = Project(
+      id: 2,
+      title: 'Proyek Baru',
+      description: 'Deskripsi baru',
+      techStack: 'Flutter',
+      createdAt: DateTime(2026, 2),
+    );
+    final repository = _FakeProjectRepository([olderProject, newerProject]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ProjectListSection(repository: repository)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Favorit').first);
+    await tester.pumpAndSettle();
+
+    expect(repository.projects.last.isFavorite, isTrue);
+    expect(repository.projects.last.title, 'Proyek Baru');
+    expect(find.byIcon(Icons.star), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Proyek Baru')).dy,
+      lessThan(tester.getTopLeft(find.text('Proyek Lama')).dy),
+    );
   });
 
   testWidgets('project deletion requires confirmation', (
