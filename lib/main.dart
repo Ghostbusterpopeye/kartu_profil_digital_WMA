@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'pages/onboarding_page.dart';
 import 'pages/profile_page.dart';
+import 'models/project.dart';
+import 'data/project_repository.dart';
 import 'services/pref_service.dart';
 
 void main() async {
