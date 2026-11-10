@@ -1,4 +1,6 @@
 class Project {
+  static const categories = ['Umum', 'Akademik', 'Web', 'Mobile', 'Lainnya'];
+
   const Project({
     this.id,
     required this.title,
@@ -6,6 +8,8 @@ class Project {
     required this.techStack,
     required this.createdAt,
     this.isFavorite = false,
+    this.category = 'Umum',
+    this.tags = const [],
   });
 
   final int? id; // null = belum disimpan; diisi otomatis oleh database
@@ -14,12 +18,16 @@ class Project {
   final String techStack;
   final DateTime createdAt;
   final bool isFavorite;
+  final String category;
+  final List<String> tags;
 
   Project copyWith({
     String? title,
     String? description,
     String? techStack,
     bool? isFavorite,
+    String? category,
+    List<String>? tags,
   }) => Project(
     id: id,
     title: title ?? this.title,
@@ -27,6 +35,8 @@ class Project {
     techStack: techStack ?? this.techStack,
     createdAt: createdAt,
     isFavorite: isFavorite ?? this.isFavorite,
+    category: category ?? this.category,
+    tags: tags ?? this.tags,
   );
 
   /// Object → Map (untuk ditulis ke database)
@@ -37,6 +47,7 @@ class Project {
     'tech_stack': techStack,
     'created_at': createdAt.toIso8601String(),
     'is_favorite': isFavorite ? 1 : 0,
+    'category': category,
   };
 
   /// Map (hasil baca database) → Object
@@ -47,5 +58,6 @@ class Project {
     techStack: map['tech_stack'] as String,
     createdAt: DateTime.parse(map['created_at'] as String),
     isFavorite: (map['is_favorite'] as int? ?? 0) == 1,
+    category: map['category'] as String? ?? 'Umum',
   );
 }

@@ -18,6 +18,10 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
   late final _title = TextEditingController(text: widget.project?.title);
   late final _desc = TextEditingController(text: widget.project?.description);
   late final _tech = TextEditingController(text: widget.project?.techStack);
+  late final _tags = TextEditingController(
+    text: widget.project?.tags.join(', '),
+  );
+  late String _category = widget.project?.category ?? Project.categories.first;
 
   bool _saving = false;
   bool get _isEdit => widget.project != null;
@@ -27,6 +31,7 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
     _title.dispose();
     _desc.dispose();
     _tech.dispose();
+    _tags.dispose();
     super.dispose();
   }
 
@@ -45,6 +50,13 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
       techStack: _tech.text.trim(),
       createdAt: old?.createdAt ?? DateTime.now(),
       isFavorite: old?.isFavorite ?? false,
+      category: _category,
+      tags: _tags.text
+          .split(',')
+          .map((tag) => tag.trim())
+          .where((tag) => tag.isNotEmpty)
+          .toSet()
+          .toList(),
     );
 
     try {
@@ -93,6 +105,21 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
               validator: _required,
             ),
             const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _category,
+              decoration: const InputDecoration(
+                labelText: 'Kategori',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final category in Project.categories)
+                  DropdownMenuItem(value: category, child: Text(category)),
+              ],
+              onChanged: (category) {
+                if (category != null) setState(() => _category = category);
+              },
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _desc,
               maxLines: 4,
@@ -101,6 +128,15 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
                 border: OutlineInputBorder(),
               ),
               validator: _required,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _tags,
+              decoration: const InputDecoration(
+                labelText: 'Tag (pisahkan dengan koma)',
+                hintText: 'contoh: tugas, kampus',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 24),
             FilledButton(

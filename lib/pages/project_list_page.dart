@@ -3,19 +3,77 @@ import '../data/project_repository.dart';
 import '../models/project.dart';
 import 'project_form_page.dart';
 
-class ProjectListPage extends StatelessWidget {
+class ProjectListPage extends StatefulWidget {
   const ProjectListPage({super.key, this.repository});
 
   final ProjectRepository? repository;
 
   @override
+  State<ProjectListPage> createState() => _ProjectListPageState();
+}
+
+class _ProjectListPageState extends State<ProjectListPage> {
+  late final _repo = widget.repository ?? ProjectRepository();
+  final _sectionKey = GlobalKey<ProjectListSectionState>();
+
+  Future<void> _confirmDeleteAll() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus semua proyek?'),
+        content: const Text(
+          'Semua proyek dan tag terkait akan dihapus permanen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus Semua'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final deleted = await _repo.deleteAll();
+      if (!mounted) return;
+      _sectionKey.currentState?.reload();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            deleted == 0
+                ? 'Tidak ada proyek untuk dihapus'
+                : '$deleted proyek dihapus',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Gagal menghapus semua proyek: $error')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Proyek Saya')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ProjectListSection(repository: repository),
+      appBar: AppBar(
+        title: const Text('Proyek Saya'),
+        actions: [
+          IconButton(
+            onPressed: _confirmDeleteAll,
+            tooltip: 'Hapus Semua',
+            icon: const Icon(Icons.delete_sweep_outlined),
+          ),
+        ],
       ),
+      body: ProjectListSection(key: _sectionKey, repository: _repo),
     );
   }
 }
@@ -26,16 +84,24 @@ class ProjectListSection extends StatefulWidget {
   final ProjectRepository? repository;
 
   @override
-  State<ProjectListSection> createState() => _ProjectListSectionState();
+  ProjectListSectionState createState() => ProjectListSectionState();
 }
 
-class _ProjectListSectionState extends State<ProjectListSection> {
+class ProjectListSectionState extends State<ProjectListSection> {
   late final _repo = widget.repository ?? ProjectRepository();
   late Future<List<Project>> _future = _repo.getAll();
+  String _query = '';
+  String? _category;
+  bool _favoritesOnly = false;
 
-  void _reload() {
+  void reload() {
+    if (!mounted) return;
     setState(() {
-      _future = _repo.getAll();
+      _future = _repo.getAll(
+        query: _query,
+        category: _category,
+        favoritesOnly: _favoritesOnly,
+      );
     });
   }
 
@@ -46,7 +112,7 @@ class _ProjectListSectionState extends State<ProjectListSection> {
         builder: (_) => ProjectFormPage(project: project, repository: _repo),
       ),
     );
-    if (changed == true) _reload();
+    if (changed == true) reload();
   }
 
   Future<void> _toggleFavorite(Project project) async {
@@ -60,8 +126,7 @@ class _ProjectListSectionState extends State<ProjectListSection> {
 
     try {
       await _repo.update(project.copyWith(isFavorite: !project.isFavorite));
-      if (!mounted) return;
-      _reload();
+      reload();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -70,70 +135,122 @@ class _ProjectListSectionState extends State<ProjectListSection> {
     }
   }
 
-  Future<void> _confirmDelete(Project project) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus proyek?'),
-        content: Text('"${project.title}" akan dihapus permanen.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Hapus'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || confirmed != true) return;
-    final messenger = ScaffoldMessenger.of(context);
-
+  Future<void> _deleteProject(Project project) async {
     final id = project.id;
     if (id == null) {
-      messenger.showSnackBar(
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Proyek tidak memiliki ID yang valid')),
       );
+      reload();
       return;
     }
 
     try {
       final deleted = await _repo.delete(id);
       if (!mounted) return;
-      _reload();
-      messenger.showSnackBar(
+      reload();
+      if (deleted == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Proyek tidak ditemukan atau sudah dihapus'),
+          ),
+        );
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            deleted > 0
-                ? '"${project.title}" dihapus'
-                : '"${project.title}" tidak ditemukan atau sudah dihapus',
+          content: Text('"${project.title}" dihapus'),
+          action: SnackBarAction(
+            label: 'Urungkan',
+            onPressed: () => _undoDelete(project),
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('Gagal menghapus proyek: $error')),
+      reload();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal menghapus proyek: $error')));
+    }
+  }
+
+  Future<void> _undoDelete(Project project) async {
+    try {
+      await _repo.insert(project);
+      reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengurungkan penghapusan: $error')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return ListView(
+      padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        FilledButton.icon(
+          onPressed: () => _openForm(),
+          icon: const Icon(Icons.add),
+          label: const Text('Tambah'),
+          style: FilledButton.styleFrom(alignment: Alignment.centerLeft),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          decoration: InputDecoration(
+            labelText: 'Cari proyek atau tag',
+            prefixIcon: const Icon(Icons.search),
+            border: const OutlineInputBorder(),
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Hapus pencarian',
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _query = '';
+                      reload();
+                    },
+                  ),
+          ),
+          onChanged: (value) {
+            _query = value.trim();
+            reload();
+          },
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
           children: [
-            Text('Proyek Saya', style: Theme.of(context).textTheme.titleLarge),
-            FilledButton.icon(
-              onPressed: () => _openForm(),
-              icon: const Icon(Icons.add),
-              label: const Text('Tambah'),
+            FilterChip(
+              label: const Text('Favorit'),
+              selected: _favoritesOnly,
+              onSelected: (selected) {
+                _favoritesOnly = selected;
+                reload();
+              },
             ),
+            FilterChip(
+              label: const Text('Semua kategori'),
+              selected: _category == null,
+              onSelected: (_) {
+                _category = null;
+                reload();
+              },
+            ),
+            for (final category in Project.categories)
+              FilterChip(
+                label: Text(category),
+                selected: _category == category,
+                onSelected: (_) {
+                  _category = category;
+                  reload();
+                },
+              ),
           ],
         ),
         const SizedBox(height: 8),
@@ -141,7 +258,10 @@ class _ProjectListSectionState extends State<ProjectListSection> {
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
+              return const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              );
             }
             if (snapshot.hasError) {
               return Text('Terjadi kesalahan: ${snapshot.error}');
@@ -152,7 +272,7 @@ class _ProjectListSectionState extends State<ProjectListSection> {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Text(
-                  'Belum ada proyek.\nTekan + untuk menambahkan.',
+                  'Belum ada proyek yang cocok dengan filter.',
                   textAlign: TextAlign.center,
                 ),
               );
@@ -160,34 +280,40 @@ class _ProjectListSectionState extends State<ProjectListSection> {
 
             return Column(
               children: [
-                for (final p in items)
-                  Card(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    child: ListTile(
-                      title: Text(p.title),
-                      subtitle: Text(
-                        '${p.techStack}\n${p.description}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                for (final project in items)
+                  Dismissible(
+                    key: ValueKey(project.id),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      color: Theme.of(context).colorScheme.error,
+                      child: Icon(
+                        Icons.delete_outline,
+                        color: Theme.of(context).colorScheme.onError,
                       ),
-                      isThreeLine: true,
-                      onTap: () => _openForm(p),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              p.isFavorite ? Icons.star : Icons.star_border,
-                            ),
-                            tooltip: 'Favorit',
-                            onPressed: () => _toggleFavorite(p),
+                    ),
+                    onDismissed: (_) => _deleteProject(project),
+                    child: Card(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: ListTile(
+                        title: Text(project.title),
+                        subtitle: Text(
+                          '${project.techStack} • ${project.category}\n'
+                          '${project.description}'
+                          '${project.tags.isEmpty ? '' : '\nTag: ${project.tags.join(', ')}'}',
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        isThreeLine: true,
+                        onTap: () => _openForm(project),
+                        trailing: IconButton(
+                          icon: Icon(
+                            project.isFavorite ? Icons.star : Icons.star_border,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            tooltip: 'Hapus',
-                            onPressed: () => _confirmDelete(p),
-                          ),
-                        ],
+                          tooltip: 'Favorit',
+                          onPressed: () => _toggleFavorite(project),
+                        ),
                       ),
                     ),
                   ),

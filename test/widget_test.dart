@@ -20,11 +20,12 @@ class _FakeProjectRepository extends ProjectRepository {
   @override
   Future<int> insert(Project project) async {
     final id =
-        projects.fold<int>(0, (maxId, item) {
-          final itemId = item.id ?? 0;
-          return itemId > maxId ? itemId : maxId;
-        }) +
-        1;
+        project.id ??
+        (projects.fold<int>(0, (maxId, item) {
+              final itemId = item.id ?? 0;
+              return itemId > maxId ? itemId : maxId;
+            }) +
+            1);
     projects.add(
       Project(
         id: id,
@@ -33,21 +34,42 @@ class _FakeProjectRepository extends ProjectRepository {
         techStack: project.techStack,
         createdAt: project.createdAt,
         isFavorite: project.isFavorite,
+        category: project.category,
+        tags: project.tags,
       ),
     );
     return id;
   }
 
   @override
-  Future<List<Project>> getAll({String query = ''}) async =>
-      List<Project>.of(projects)..sort((a, b) {
-        final favoriteOrder = (b.isFavorite ? 1 : 0).compareTo(
-          a.isFavorite ? 1 : 0,
-        );
-        return favoriteOrder != 0
-            ? favoriteOrder
-            : b.createdAt.compareTo(a.createdAt);
-      });
+  Future<List<Project>> getAll({
+    String query = '',
+    String? category,
+    bool favoritesOnly = false,
+  }) async {
+    final normalizedQuery = query.toLowerCase();
+    return projects.where((project) {
+      final matchesQuery =
+          normalizedQuery.isEmpty ||
+          [
+            project.title,
+            project.description,
+            project.techStack,
+            project.category,
+            ...project.tags,
+          ].any((value) => value.toLowerCase().contains(normalizedQuery));
+      return matchesQuery &&
+          (category == null || project.category == category) &&
+          (!favoritesOnly || project.isFavorite);
+    }).toList()..sort((a, b) {
+      final favoriteOrder = (b.isFavorite ? 1 : 0).compareTo(
+        a.isFavorite ? 1 : 0,
+      );
+      return favoriteOrder != 0
+          ? favoriteOrder
+          : b.createdAt.compareTo(a.createdAt);
+    });
+  }
 
   @override
   Future<int> update(Project project) async {
@@ -62,6 +84,13 @@ class _FakeProjectRepository extends ProjectRepository {
     final count = projects.length;
     projects.removeWhere((project) => project.id == id);
     return count - projects.length;
+  }
+
+  @override
+  Future<int> deleteAll() async {
+    final count = projects.length;
+    projects.clear();
+    return count;
   }
 }
 
@@ -81,6 +110,32 @@ void main() {
     final legacyMap = project.toMap()..remove('is_favorite');
     expect(Project.fromMap(legacyMap).isFavorite, isFalse);
     expect(project.copyWith(isFavorite: false).isFavorite, isFalse);
+  });
+
+  test('project category defaults for records without the migrated column', () {
+    final project = Project(
+      id: 2,
+      title: 'Proyek Web',
+      description: 'Deskripsi',
+      techStack: 'Flutter',
+      createdAt: DateTime(2026),
+      category: 'Web',
+      tags: ['api'],
+    );
+    expect(project.toMap()['category'], 'Web');
+    expect(project.toMap().containsKey('tags'), isFalse);
+
+    final oldProject = Project.fromMap({
+      'id': 1,
+      'title': 'Proyek Lama',
+      'description': 'Deskripsi',
+      'tech_stack': 'Dart',
+      'created_at': DateTime(2026).toIso8601String(),
+      'is_favorite': 0,
+    });
+
+    expect(oldProject.category, 'Umum');
+    expect(oldProject.tags, isEmpty);
   });
 
   testWidgets('profile, projects, and preferences are available', (
@@ -200,13 +255,142 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(0), 'Proyek Baru');
     await tester.enterText(find.byType(TextFormField).at(1), 'Flutter');
     await tester.enterText(find.byType(TextFormField).at(2), 'Deskripsi');
+    await tester.enterText(find.byType(TextFormField).at(3), 'api, kampus');
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Web').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Simpan'));
     await tester.tap(find.text('Simpan'));
     await tester.pumpAndSettle();
 
     expect(find.text('Proyek Baru'), findsOneWidget);
+    expect(projectRepository.projects.single.category, 'Web');
+    expect(projectRepository.projects.single.tags, ['api', 'kampus']);
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('1 proyek'), findsOneWidget);
+  });
+
+  testWidgets('search and chips filter by text, category, and favorite', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeProjectRepository([
+      Project(
+        id: 1,
+        title: 'API Kampus',
+        description: 'Portal akademik',
+        techStack: 'Flutter',
+        createdAt: DateTime(2026, 1),
+        isFavorite: true,
+        category: 'Web',
+        tags: ['rest'],
+      ),
+      Project(
+        id: 2,
+        title: 'Aplikasi Mobile',
+        description: 'Aplikasi catatan',
+        techStack: 'Dart',
+        createdAt: DateTime(2026, 2),
+        category: 'Mobile',
+        tags: ['offline'],
+      ),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectListPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'rest');
+    await tester.pumpAndSettle();
+    expect(find.text('API Kampus'), findsOneWidget);
+    expect(find.text('Aplikasi Mobile'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, 'Mobile'));
+    await tester.pumpAndSettle();
+    expect(find.text('Aplikasi Mobile'), findsOneWidget);
+    expect(find.text('API Kampus'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Semua kategori'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, 'Favorit'));
+    await tester.pumpAndSettle();
+    expect(find.text('API Kampus'), findsOneWidget);
+    expect(find.text('Aplikasi Mobile'), findsNothing);
+  });
+
+  testWidgets('swiping a project away allows undo', (
+    WidgetTester tester,
+  ) async {
+    final project = Project(
+      id: 7,
+      title: 'Proyek Urungkan',
+      description: 'Deskripsi',
+      techStack: 'Dart',
+      createdAt: DateTime(2026),
+      category: 'Web',
+      tags: ['undo-tag'],
+    );
+    final repository = _FakeProjectRepository([project]);
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectListPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.text('Proyek Urungkan'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(repository.projects, isEmpty);
+    expect(find.text('"Proyek Urungkan" dihapus'), findsOneWidget);
+
+    await tester.tap(find.text('Urungkan'));
+    await tester.pumpAndSettle();
+    expect(repository.projects.single.id, 7);
+    expect(repository.projects.single.category, 'Web');
+    expect(repository.projects.single.tags, ['undo-tag']);
+  });
+
+  testWidgets('delete all requires confirmation and clears projects', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeProjectRepository([
+      Project(
+        id: 1,
+        title: 'Pertama',
+        description: 'Deskripsi',
+        techStack: 'Dart',
+        createdAt: DateTime(2026),
+      ),
+      Project(
+        id: 2,
+        title: 'Kedua',
+        description: 'Deskripsi',
+        techStack: 'Flutter',
+        createdAt: DateTime(2026, 2),
+      ),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectListPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Hapus Semua'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Semua proyek dan tag terkait akan dihapus permanen.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
+    expect(repository.projects, hasLength(2));
+
+    await tester.tap(find.byTooltip('Hapus Semua'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hapus Semua'));
+    await tester.pumpAndSettle();
+    expect(repository.projects, isEmpty);
+    expect(find.text('2 proyek dihapus'), findsOneWidget);
   });
 
   testWidgets('tapping a project edits it and refreshes the list', (
@@ -277,46 +461,6 @@ void main() {
       tester.getTopLeft(find.text('Proyek Baru')).dy,
       lessThan(tester.getTopLeft(find.text('Proyek Lama')).dy),
     );
-  });
-
-  testWidgets('project deletion requires confirmation', (
-    WidgetTester tester,
-  ) async {
-    final repository = _FakeProjectRepository([
-      Project(
-        id: 1,
-        title: 'Proyek Uji',
-        description: 'Deskripsi',
-        techStack: 'Dart',
-        createdAt: DateTime(2026),
-      ),
-    ]);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: ProjectListSection(repository: repository)),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byTooltip('Hapus'));
-    await tester.pumpAndSettle();
-    expect(find.text('"Proyek Uji" akan dihapus permanen.'), findsOneWidget);
-    await tester.tap(find.text('Batal'));
-    await tester.pumpAndSettle();
-    expect(repository.projects, hasLength(1));
-    expect(find.text('Proyek Uji'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Hapus'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Hapus'));
-    await tester.pumpAndSettle();
-
-    expect(repository.projects, isEmpty);
-    expect(
-      find.text('Belum ada proyek.\nTekan + untuk menambahkan.'),
-      findsOneWidget,
-    );
-    expect(find.text('"Proyek Uji" dihapus'), findsOneWidget);
   });
 
   testWidgets('onboarding is shown once and remembered', (
