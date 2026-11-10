@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/profile_data.dart';
 import '../services/pref_service.dart';
 import 'edit_profile_page.dart';
+import 'project_list_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
@@ -119,6 +120,8 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 8),
+          const ProjectListSection(),
+          const SizedBox(height: 8),
           ListTile(
             leading: const Icon(Icons.brightness_6),
             title: const Text('Mode tampilan'),
@@ -161,7 +164,6 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
-          // Lab 11 akan menambahkan menu "Proyek Saya" di sini.
           const SizedBox(height: 24),
           Center(
             child: Text(

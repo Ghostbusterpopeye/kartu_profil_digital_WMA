@@ -3,14 +3,29 @@ import '../data/project_repository.dart';
 import '../models/project.dart';
 import 'project_form_page.dart';
 
-class ProjectListPage extends StatefulWidget {
+class ProjectListPage extends StatelessWidget {
   const ProjectListPage({super.key});
 
   @override
-  State<ProjectListPage> createState() => _ProjectListPageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Proyek Saya')),
+      body: const Padding(
+        padding: EdgeInsets.all(16),
+        child: ProjectListSection(),
+      ),
+    );
+  }
 }
 
-class _ProjectListPageState extends State<ProjectListPage> {
+class ProjectListSection extends StatefulWidget {
+  const ProjectListSection({super.key});
+
+  @override
+  State<ProjectListSection> createState() => _ProjectListSectionState();
+}
+
+class _ProjectListSectionState extends State<ProjectListSection> {
   final _repo = ProjectRepository();
   late Future<List<Project>> _future = _repo.getAll();
 
@@ -30,55 +45,64 @@ class _ProjectListPageState extends State<ProjectListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Proyek Saya')),
-      body: FutureBuilder<List<Project>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Terjadi kesalahan: ${snapshot.error}'));
-          }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Proyek Saya', style: Theme.of(context).textTheme.titleLarge),
+            FilledButton.icon(
+              onPressed: () => _openForm(),
+              icon: const Icon(Icons.add),
+              label: const Text('Tambah'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<List<Project>>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Text('Terjadi kesalahan: ${snapshot.error}');
+            }
 
-          final items = snapshot.data ?? [];
-          if (items.isEmpty) {
-            return const Center(
-              child: Text(
-                'Belum ada proyek.\nTekan + untuk menambahkan.',
-                textAlign: TextAlign.center,
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.only(bottom: 88),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final p = items[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                child: ListTile(
-                  title: Text(p.title),
-                  subtitle: Text(
-                    '${p.techStack}\n${p.description}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  isThreeLine: true,
-                  onTap: () => _openForm(p),
-                  trailing: const Icon(Icons.edit),
+            final items = snapshot.data ?? [];
+            if (items.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'Belum ada proyek.\nTekan + untuk menambahkan.',
+                  textAlign: TextAlign.center,
                 ),
               );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openForm(),
-        child: const Icon(Icons.add),
-      ),
+            }
+
+            return Column(
+              children: [
+                for (final p in items)
+                  Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    child: ListTile(
+                      title: Text(p.title),
+                      subtitle: Text(
+                        '${p.techStack}\n${p.description}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      isThreeLine: true,
+                      onTap: () => _openForm(p),
+                      trailing: const Icon(Icons.edit),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }
